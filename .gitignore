@@ -1,0 +1,24 @@
+# Large data files
+metadata.csv
+*.csv
+data/
+raw_data/
+
+# Virtual environments
+venv/
+env/
+.venv/
+cord19_env/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# IDE files
+.vscode/
+.idea/
+
+# System files
+.DS_Store
