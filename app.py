@@ -239,4 +239,27 @@ else:
     
     **Download link for metadata.csv:** 
     [CORD-19 Dataset on Kaggle](https://www.kaggle.com/allen-institute-for-ai/CORD-19-research-challenge)
+    import streamlit as st
+import pandas as pd
+import os
+
+@st.cache_data
+def load_data():
+    # Check which dataset is available
+    if os.path.exists('metadata.csv'):
+        df = pd.read_csv('metadata.csv', low_memory=False)
+        st.sidebar.success("✅ Loaded full CORD-19 dataset")
+    elif os.path.exists('sample_metadata.csv'):
+        df = pd.read_csv('sample_metadata.csv')
+        st.sidebar.warning("⚠️ Using sample data. Download full dataset for complete analysis.")
+    else:
+        st.error("""
+        ❌ No dataset found. Please:
+        1. Download metadata.csv from [CORD-19 Dataset](https://www.kaggle.com/allen-institute-for-ai/CORD-19-research-challenge)
+        2. Place it in this directory
+        """)
+        return None
+    
+    # Your data processing code here...
+    return df
     """)
