@@ -254,7 +254,7 @@ def load_data():
         st.sidebar.warning("⚠️ Using sample data. Download full dataset for complete analysis.")
     else:
         st.error("""
-        ❌ No dataset found. Please:
+        No dataset found. Please:
         1. Download metadata.csv from [CORD-19 Dataset](https://www.kaggle.com/allen-institute-for-ai/CORD-19-research-challenge)
         2. Place it in this directory
         """)
