@@ -24,28 +24,77 @@ This application provides a basic analysis of the COVID-19 Open Research Dataset
 The dataset contains information about research papers related to COVID-19.
 """)
 
+# Function to create sample dataset
+def create_sample_dataset():
+    """Create a sample dataset from the full metadata.csv file"""
+    try:
+        if os.path.exists('metadata.csv'):
+            # Read first 5000 rows from the full dataset
+            metadata = pd.read_csv("metadata.csv", nrows=5000)
+            # Save the sample to a new file
+            metadata.to_csv("metadata_sample.csv", index=False)
+            st.sidebar.success("✅ Sample dataset created successfully!")
+            return True
+        else:
+            st.sidebar.error("❌ metadata.csv not found. Cannot create sample.")
+            return False
+    except Exception as e:
+        st.sidebar.error(f"❌ Error creating sample: {str(e)}")
+        return False
+
 # Sidebar for user controls
 st.sidebar.header("Analysis Controls")
 st.sidebar.markdown("Customize the analysis using the options below:")
+
+# Add sample dataset creation to sidebar
+st.sidebar.header("📁 Data Management")
+if st.sidebar.button("Create Sample Dataset (5000 rows)"):
+    with st.sidebar:
+        with st.spinner("Creating sample dataset..."):
+            create_sample_dataset()
 
 # Function to load and preprocess data
 @st.cache_data
 def load_data():
     try:
-        # Check which dataset is available
+        # Check which dataset is available (in order of preference)
         if os.path.exists('metadata.csv'):
             df = pd.read_csv('metadata.csv', low_memory=False)
             st.sidebar.success("✅ Loaded full CORD-19 dataset")
+        elif os.path.exists('metadata_sample.csv'):
+            df = pd.read_csv('metadata_sample.csv', low_memory=False)
+            st.sidebar.info("📊 Using sample dataset (5000 rows)")
         elif os.path.exists('sample_metadata.csv'):
             df = pd.read_csv('sample_metadata.csv')
-            st.sidebar.warning("⚠️ Using sample data. Download full dataset for complete analysis.")
+            st.sidebar.warning("⚠️ Using demo sample data")
         else:
             st.error("""
             ❌ No dataset found. Please:
-            1. Download metadata.csv from [CORD-19 Dataset](https://www.kaggle.com/allen-institute-for-ai/CORD-19-research-challenge)
-            2. Place it in this directory
+            
+            1. **Option 1**: Download `metadata.csv` from [CORD-19 Dataset](https://www.kaggle.com/allen-institute-for-ai/CORD-19-research-challenge)
+            2. **Option 2**: Click 'Create Sample Dataset' button above (requires metadata.csv)
+            3. **Option 3**: The app will use built-in demo data
             """)
-            return None
+            # Create a minimal demo dataset as fallback
+            demo_data = {
+                'cord_uid': ['demo001', 'demo002', 'demo003'],
+                'title': [
+                    'COVID-19 Transmission Dynamics Study',
+                    'Vaccine Efficacy Analysis 2021',
+                    'Public Health Response to Pandemic'
+                ],
+                'authors': ['Smith J et al.', 'Johnson A et al.', 'Lee K et al.'],
+                'journal': ['Lancet', 'Nature', 'Science'],
+                'publish_time': ['2020-03-15', '2021-02-20', '2022-01-10'],
+                'abstract': [
+                    'Study of transmission patterns in urban areas during COVID-19 pandemic.',
+                    'Analysis of vaccine effectiveness across different population groups.',
+                    'Evaluation of public health measures implemented during the pandemic.'
+                ],
+                'source_x': ['PubMed', 'arXiv', 'WHO']
+            }
+            df = pd.DataFrame(demo_data)
+            st.sidebar.warning("⚠️ Using minimal demo data")
         
         # Data cleaning and preprocessing
         # Convert publication date to datetime
@@ -75,7 +124,7 @@ if df is not None:
     # Display basic dataset information
     st.header("📊 Dataset Overview")
     
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
     
     with col1:
         st.metric("Total Papers", f"{len(df):,}")
@@ -87,10 +136,51 @@ if df is not None:
         missing_percentage = (df.isnull().sum().sum() / (df.shape[0] * df.shape[1]) * 100)
         st.metric("Overall Missing Data", f"{missing_percentage:.1f}%")
     
+    with col4:
+        # Show which dataset is being used
+        if os.path.exists('metadata.csv') and len(df) > 10000:
+            dataset_type = "Full Dataset"
+        elif os.path.exists('metadata_sample.csv'):
+            dataset_type = "Sample (5000 rows)"
+        else:
+            dataset_type = "Demo Data"
+        st.metric("Dataset Type", dataset_type)
+    
     # Data preview
     st.subheader("📋 Data Preview")
     preview_rows = st.slider("Number of rows to display:", 5, 20, 10, key="preview_slider")
     st.dataframe(df.head(preview_rows))
+    
+    # Show dataset source information
+    with st.expander("📁 Dataset Information"):
+        col1, col2 = st.columns(2)
+        with col1:
+            st.write("**Available Data Files:**")
+            files = []
+            if os.path.exists('metadata.csv'):
+                size = os.path.getsize('metadata.csv') / (1024 * 1024 * 1024)  # GB
+                files.append(f"metadata.csv ({size:.2f} GB)")
+            if os.path.exists('metadata_sample.csv'):
+                size = os.path.getsize('metadata_sample.csv') / (1024 * 1024)  # MB
+                files.append(f"metadata_sample.csv ({size:.2f} MB)")
+            if os.path.exists('sample_metadata.csv'):
+                size = os.path.getsize('sample_metadata.csv') / 1024  # KB
+                files.append(f"sample_metadata.csv ({size:.2f} KB)")
+            
+            if files:
+                for file in files:
+                    st.write(f"• {file}")
+            else:
+                st.write("No data files found")
+        
+        with col2:
+            st.write("**Data Source:**")
+            if os.path.exists('metadata.csv'):
+                st.write("Using original CORD-19 dataset")
+            elif os.path.exists('metadata_sample.csv'):
+                st.write("Using 5000-row sample from CORD-19")
+            else:
+                st.write("Using built-in demo data")
     
     # Data structure information
     st.subheader("🔍 Data Structure")
@@ -128,10 +218,10 @@ if df is not None:
     st.subheader("📅 Publications Over Time")
     
     # Filter by year range
-    year_counts = df['publication_year'].value_counts()
-    if not year_counts.empty:
-        min_year = int(year_counts.index.min())
-        max_year = int(year_counts.index.max())
+    valid_years = df[df['publication_year'].notna()]['publication_year']
+    if not valid_years.empty:
+        min_year = int(valid_years.min())
+        max_year = int(valid_years.max())
         year_range = st.slider("Select year range:", min_year, max_year, (min_year, max_year), key="year_slider")
         
         # Filter data by selected year range
@@ -271,11 +361,14 @@ else:
     st.info("""
     ## Instructions to run this application:
     
-    1. Download the `metadata.csv` file from the CORD-19 dataset
-    2. Place it in the same directory as this script
-    3. Install the required packages: `pip install streamlit pandas matplotlib seaborn wordcloud`
-    4. Run the application: `streamlit run app.py`
+    1. **Download the data**: Get `metadata.csv` from [CORD-19 Dataset](https://www.kaggle.com/allen-institute-for-ai/CORD-19-research-challenge)
+    2. **Place it** in the same directory as this script
+    3. **Install packages**: `pip install streamlit pandas matplotlib seaborn wordcloud`
+    4. **Run the app**: `streamlit run app.py`
+    5. **Optional**: Click "Create Sample Dataset" in the sidebar to generate a smaller 5000-row version
     
-    **Download link for metadata.csv:** 
-    [CORD-19 Dataset on Kaggle](https://www.kaggle.com/allen-institute-for-ai/CORD-19-research-challenge)
+    The app will work with:
+    - Full dataset (if metadata.csv is available)
+    - Sample dataset (5000 rows, created from full dataset)
+    - Built-in demo data (if no files are available)
     """)
