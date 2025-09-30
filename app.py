@@ -229,7 +229,7 @@ if df is not None:
         )
 
 else:
-    st.info("""
+    st.info( """
     ## Instructions to run this application:
     
     1. Download the `metadata.csv` file from the CORD-19 dataset
